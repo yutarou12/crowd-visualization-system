@@ -8,7 +8,7 @@ import schedule
 import time
 
 
-def load_yolo_model(model_path='model/yolov8s.pt'):
+def load_yolo_model(model_path='model/yolo11s.pt'):
     model = YOLO(model_path)
     return model
 
