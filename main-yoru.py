@@ -1,14 +1,11 @@
 import asyncio
 import datetime
-import json
-import time
-
 import cv2
 import requests
-import schedule
 from ultralytics import YOLO
-
 import libs.env as env
+import schedule
+import time
 
 
 def load_yolo_model(model_path='model/yolov8s.pt'):
@@ -20,53 +17,55 @@ model = load_yolo_model()
 print(f"モデルがロードされました: {model}")
 
 
-def detect_video(m):
+async def detect_video(m, rtsp_url: str, floor: str):
     date_now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    with open("./data/room_count.json", encoding="utf-8") as f:
-        data = json.load(f)
+    cap = cv2.VideoCapture(rtsp_url)
+    try:
+        ret, frame = cap.read()
+        if not ret or frame is None:
+            print(f"[{date_now}] [{floor}] フレーム取得に失敗")
+            return
 
-    room_count = data.get("RoomCount")
-    cap = cv2.VideoCapture(env.VIDEO_PATH)
-    ret, frame = cap.read()
-    if not ret:
-        print(f"[{date_now}] no ret")
-    else:
+        results = m(frame)
+        people_count = 0
+        for r in results:
+            for box in r.boxes:
+                if int(box.cls[0]) == 0:  # クラスID 0 が person を想定
+                    people_count += 1
+                    x1, y1, x2, y2 = box.xyxy[0]
+                    cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
+
+        #url = f"{env.API_PATH}?floor={floor}&count={people_count}"
         try:
-            results = m(frame)
-            pople_count = 0
-            for r in results:
-                boxes = r.boxes
-                for box in boxes:
-                    if box.cls[0] == 0:
-                        pople_count += 1
-                        x1, y1, x2, y2 = box.xyxy[0]
-                        cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
-
-            cv2.imwrite("./tmp/room-img.png", frame)
-            url = env.API_PATH
-            if pople_count > 0:
-                requests.post(url, json={"room_in": True})
-                room_count = 0
-            else:
-                if room_count == 5:
-                    requests.post(url, json={"room_in": False})
-                    room_count = 0
-                else:
-                    room_count += 1
-
-            with open("./data/room_count.json", "w", encoding="utf-8") as f:
-                data["RoomCount"] = room_count
-                json.dump(data, f, ensure_ascii=False, indent=4)
-
-            print(f"[{date_now}] 人数: {pople_count}")
+            print(f"[{date_now}] [{floor}] API送信: 人数 {people_count}")
+            #requests.post(url=url, timeout=5)
         except Exception as e:
-            print(f"[{date_now}] エラー：{e}")
+            print(f"[{date_now}] [{floor}] API送信エラー: {e}")
+
+        print(f"[{date_now}] [{floor}] 人数: {people_count}")
+    except Exception as e:
+        print(f"[{date_now}] [{floor}] エラー: {e}")
+    finally:
+        cap.release()
 
 
-async def loop_detect_video():
-    schedule.every(1).minutes.do(detect_video, m=model)
+async def process_cameras():
+    tasks = []
+    for cam in env.CAMERAS:
+        tasks.append(detect_video(model, cam['rtsp'], cam['floor']))
+    await asyncio.gather(*tasks)
+
+
+def send_data_periodically():
+    def job():
+        asyncio.run(process_cameras())
+
+    schedule.every(10).seconds.do(job)
+
     while True:
         schedule.run_pending()
         time.sleep(1)
 
-asyncio.run(loop_detect_video())
+
+if __name__ == "__main__":
+    send_data_periodically()
