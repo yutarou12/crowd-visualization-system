@@ -1,0 +1,16 @@
+services:
+  yoru:
+    restart: always
+    build:
+      context: "."
+      dockerfile: "Dockerfile"
+    volumes:
+      - ./:/app/
+    working_dir: "/app/"
+    tty: true
+    networks:
+      - app-birn-net
+
+networks:
+  app-birn-net:
+    driver: bridge
