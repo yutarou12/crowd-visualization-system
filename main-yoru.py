@@ -35,10 +35,12 @@ async def detect_video(m, rtsp_url: str, floor: str):
                     x1, y1, x2, y2 = box.xyxy[0]
                     cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
 
-        #url = f"{env.API_PATH}?floor={floor}&count={people_count}"
+        url = f"{env.API_PATH}?floor={floor}&count={people_count}"
         try:
             print(f"[{date_now}] [{floor}] API送信: 人数 {people_count}")
-            #requests.post(url=url, timeout=5)
+            res = requests.get(url=url, timeout=5)
+            res.raise_for_status()
+            print(f"[{date_now}] [{floor}] API送信成功: ステータスコード {res.status_code}")
         except Exception as e:
             print(f"[{date_now}] [{floor}] API送信エラー: {e}")
 
