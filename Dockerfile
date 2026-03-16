@@ -10,7 +10,6 @@ RUN apt update && apt install -y \
 
 COPY requirements.txt /app/requirements.txt
 
-RUN apt -y update && apt -y install libopencv-dev
 RUN python -m pip install --upgrade pip setuptools wheel
 RUN if [ -f /app/requirements.txt ]; then python -m pip install --no-cache-dir -r /app/requirements.txt; fi
 
