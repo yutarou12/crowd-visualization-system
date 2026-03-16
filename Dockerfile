@@ -6,7 +6,7 @@ WORKDIR /app
 RUN apt update && apt install -y \
     libglib2.0-0 \
     libgl1 \
-    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt /app/requirements.txt
 
